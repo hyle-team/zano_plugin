@@ -1,0 +1,13 @@
+prefix=/opt/android/prefix_aarch64
+exec_prefix=/opt/android/prefix_aarch64
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: unbound
+Description: Library with validating, recursive, and caching DNS resolver
+URL: http://www.unbound.net
+Version: 1.16.2
+Requires.private:    
+Libs: -L${libdir} -lunbound
+Libs.private: -lssl -lcrypto
+Cflags: -I${includedir}
