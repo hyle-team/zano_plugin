@@ -1,4 +1,4 @@
-import 'package:cw_zano/api/model/history.dart';
+import 'package:cw_zano/model/history.dart';
 
 class RecentHistory {
   final List<History>? history;

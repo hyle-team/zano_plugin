@@ -1,4 +1,4 @@
-import 'package:cw_zano/api/model/asset_info.dart';
+import 'package:cw_zano/model/asset_info.dart';
 
 class Balance {
   final AssetInfo assetInfo;

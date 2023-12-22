@@ -1,4 +1,4 @@
-import 'package:cw_zano/api/model/receive.dart';
+import 'package:cw_zano/model/receive.dart';
 
 class EmployedEntries {
   final List<Receive> receive;

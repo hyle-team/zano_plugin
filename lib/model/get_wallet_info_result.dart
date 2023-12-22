@@ -1,5 +1,5 @@
-import 'package:cw_zano/api/model/wi.dart';
-import 'package:cw_zano/api/model/wi_extended.dart';
+import 'package:cw_zano/model/wi.dart';
+import 'package:cw_zano/model/wi_extended.dart';
 
 class GetWalletInfoResult {
   final Wi wi;

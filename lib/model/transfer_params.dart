@@ -1,8 +1,8 @@
-import 'package:cw_zano/api/model/destination.dart';
+import 'package:cw_zano/model/destination.dart';
 
 class TransferParams {
   final List<Destination> destinations;
-  final int fee;
+  int fee;
   final int mixin;
   final String paymentId;
   final String comment;

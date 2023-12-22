@@ -1,5 +1,5 @@
-import 'package:cw_zano/api/model/employed_entries.dart';
-import 'package:cw_zano/api/model/subtransfer.dart';
+import 'package:cw_zano/model/employed_entries.dart';
+import 'package:cw_zano/model/subtransfer.dart';
 
 class History {
   final String comment;

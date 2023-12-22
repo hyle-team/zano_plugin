@@ -1,4 +1,4 @@
-import 'package:cw_zano/api/model/balance.dart';
+import 'package:cw_zano/model/balance.dart';
 
 class Wi {
   final String address;

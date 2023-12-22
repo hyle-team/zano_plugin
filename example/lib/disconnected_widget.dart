@@ -1,7 +1,12 @@
-import 'package:example/connected_widget.dart';
-import 'package:example/main.dart';
+// ignore_for_file: prefer_const_constructors
+
+import 'package:zano/connected_widget.dart';
+import 'package:zano/consts.dart';
+import 'package:zano/logic/zano_wallet_provider.dart';
+import 'package:zano/main.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 class DisconnectedWidget extends StatefulWidget {
   const DisconnectedWidget({super.key});
@@ -12,7 +17,7 @@ class DisconnectedWidget extends StatefulWidget {
 }
 
 class _DisconnectedWidgetState extends State<DisconnectedWidget> {
-  late final TextEditingController _name = TextEditingController(text: "wallet");
+  TextEditingController? _name;
   late final TextEditingController _seed = TextEditingController(
       text:
           "palm annoy brush task almost through here sent doll guilty smart horse mere canvas flirt advice fruit known shower happiness steel autumn beautiful approach anymore canvas");
@@ -20,89 +25,84 @@ class _DisconnectedWidgetState extends State<DisconnectedWidget> {
 
   @override
   void initState() {
+    final zanoWalletProvider = Provider.of<ZanoWalletProvider>(context, listen: false);
     super.initState();
-    () async {
-      final preferences = await SharedPreferences.getInstance();
-      final value = preferences.getString(walletName);
-      if (value != null && value.isNotEmpty) _name.text = value;
-    }();
+    _name = TextEditingController(text: zanoWalletProvider.walletName.isEmpty ? 'wallet' : zanoWalletProvider.walletName);
+    // () async {
+    //   final preferences = await SharedPreferences.getInstance();
+    //   final value = preferences.getString(Consts.walletName);
+    //   if (value != null && value.isNotEmpty) _name.text = value;
+    // }();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Disconnected')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Stack(
-            children: [
-              Opacity(
-                opacity: _loading ? 0.5 : 1,
-                child: Column(
-                  children: [
-                    TextField(controller: _name, decoration: InputDecoration(labelText: 'Wallet name')),
-                    TextButton(
-                        child: Text('Connect and Open Wallet'),
-                        onPressed: () async {
-                          //setState(() => _loading = true);
-                          final preferences = await SharedPreferences.getInstance();
-                          await preferences.setString(walletName, _name.text);
-                          final result = await connect(_name.text);
-                          //setState(() => _loading = false);
-                          if (result != null) {
-                            debugPrint("navigated to connected");
-                            Navigator.of(context).pushReplacementNamed(
-                              ConnectedWidget.route,
-                              arguments: result,
-                            );
-                          } else {
-                            debugPrint('connect no result');
-                          }
-                        }),
-                    const SizedBox(height: 16),
-                    TextButton(
-                        child: Text('Create and Open Wallet'),
-                        onPressed: () async {
-                          //setState(() => _loading = true);
-                          final preferences = await SharedPreferences.getInstance();
-                          await preferences.setString(walletName, _name.text);
-                          final result = await create(_name.text);
-                          //setState(() => _loading = false);
-                          if (result != null) {
-                            debugPrint("navigating to connected");
-                            Navigator.of(context).pushReplacementNamed(
-                              ConnectedWidget.route,
-                              arguments: result,
-                            );
-                          } else {
-                            debugPrint('create no result');
-                          }
-                        }),
-                    const SizedBox(height: 16),
-                    TextField(controller: _seed, decoration: InputDecoration(labelText: 'Wallet seed')),
-                    TextButton(
-                        child: Text('Restore from seed'),
-                        onPressed: () async {
-                          final preferences = await SharedPreferences.getInstance();
-                          await preferences.setString(walletName, _name.text);
-                          final result = await restore(_name.text, _seed.text);
-                          if (result != null) {
-                            Navigator.of(context).pushReplacementNamed(
-                              ConnectedWidget.route,
-                              arguments: result,
-                            );
-                          } else {
-                            debugPrint('restore no result');
-                          }
-                        }),
-                    const SizedBox(height: 16),
-                    TextButton(child: Text('Close Wallet'), onPressed: close),
-                  ],
-                ),
+    return Consumer<ZanoWalletProvider>(
+      builder: (context, zanoWallet, _) => Scaffold(
+        appBar: AppBar(title: Text('Disconnected')),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Stack(
+                children: [
+                  Opacity(
+                    opacity: _loading ? 0.5 : 1,
+                    child: Column(
+                      children: [
+                        Text('Version: ${zanoWallet.version}'),
+                        if (zanoWallet.connectivityStatus != null)
+                          Text('Is Online: ${zanoWallet.connectivityStatus!.isOnline}, IsServerBusy: ${zanoWallet.connectivityStatus!.isServerBusy}'),
+                        TextField(controller: _name, decoration: const InputDecoration(labelText: 'Wallet name'), onChanged: (value) => zanoWallet.walletName = value),
+                        const SizedBox(height: 16),
+                        Text('Is wallet exists: ${zanoWallet.isWalletExists}'),
+                        TextButton(
+                            onPressed: zanoWallet.isWalletExists
+                                ? null
+                                : () async {
+                                    final result = await zanoWallet.create();
+                                    if (result) {
+                                      if (!mounted) return;
+                                      Navigator.of(context).pushReplacementNamed(ConnectedWidget.route, arguments: result);
+                                    }
+                                  },
+                            child: Text('Create New Wallet')),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: !zanoWallet.isWalletExists
+                              ? null
+                              : () async {
+                                  final result = await Provider.of<ZanoWalletProvider>(context, listen: false).connect();
+                                  if (result) {
+                                    if (!mounted) return;
+                                    Navigator.of(context).pushReplacementNamed(ConnectedWidget.route, arguments: result);
+                                  }
+                                },
+                          child: Text('Connect to Existing Wallet'),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(controller: _seed, decoration: InputDecoration(labelText: 'Wallet seed')),
+                        TextButton(
+                          onPressed: zanoWallet.isWalletExists
+                              ? null
+                              : () async {
+                                  final result = await zanoWallet.restore(_seed.text);
+                                  if (result) {
+                                    if (!mounted) return;
+                                    Navigator.of(context).pushReplacementNamed(ConnectedWidget.route, arguments: result);
+                                  }
+                                },
+                          child: Text('Restore from seed'),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(child: Text('Close Wallet'), onPressed: () => zanoWallet.close()),
+                      ],
+                    ),
+                  ),
+                  if (_loading) Center(child: CircularProgressIndicator()),
+                ],
               ),
-              if (_loading) Center(child: CircularProgressIndicator()),
-            ],
+            ),
           ),
         ),
       ),

@@ -1,5 +1,5 @@
-import 'package:cw_zano/api/model/recent_history.dart';
-import 'package:cw_zano/api/model/wi.dart';
+import 'package:cw_zano/model/recent_history.dart';
+import 'package:cw_zano/model/wi.dart';
 
 class CreateWalletResult {
   final String name;
