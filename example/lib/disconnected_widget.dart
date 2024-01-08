@@ -1,12 +1,9 @@
 // ignore_for_file: prefer_const_constructors
 
-import 'package:zano/connected_widget.dart';
-import 'package:zano/consts.dart';
-import 'package:zano/logic/zano_wallet_provider.dart';
-import 'package:zano/main.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:zano/connected_widget.dart';
+import 'package:zano/logic/zano_wallet_provider.dart';
 
 class DisconnectedWidget extends StatefulWidget {
   const DisconnectedWidget({super.key});

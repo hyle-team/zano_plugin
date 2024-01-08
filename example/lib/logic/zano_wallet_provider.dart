@@ -13,7 +13,6 @@ import 'package:cw_zano/utils/utils.dart';
 import 'package:cw_zano/zano_wallet.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
 import '../consts.dart';
 
@@ -72,7 +71,7 @@ class ZanoWalletProvider extends ChangeNotifier {
     });
 
     if (!zanoWallet.setupNode()) {
-      Fluttertoast.showToast(msg: 'error setting up node!');
+      debugPrint('error setting up node!');
     }
     notifyListeners();
   }
@@ -134,8 +133,9 @@ class ZanoWalletProvider extends ChangeNotifier {
   }
 
   Future<TransferResult?> transfer(TransferParams params) async {
-    txFee = zanoWallet.getCurrentTxFee(priority: 0);
+    txFee = zanoWallet.getCurrentTxFee(priority: 1);
     params.fee = txFee;
+    debugPrint('fee ${params.fee}');
     final result = await zanoWallet.transfer(params);
     notifyListeners();
     return result;

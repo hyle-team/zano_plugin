@@ -152,9 +152,19 @@ class ApiCalls {
     return result;
   }
 
+  // static String asyncCall({required String methodName, required int hWallet, required String params}) {
+  //   final methodNamePointer = methodName.toNativeUtf8();
+  //   final paramsPointer = params.toNativeUtf8();
+  //   final result = convertUTF8ToString(pointer: _asyncCallNative(methodNamePointer, hWallet, paramsPointer));
+  //   calloc.free(methodNamePointer);
+  //   calloc.free(paramsPointer);
+  //   return result;
+  // }
+
   static String asyncCall({required String methodName, required int hWallet, required String params}) {
     final methodNamePointer = methodName.toNativeUtf8();
     final paramsPointer = params.toNativeUtf8();
+    debugPrint('async_call method_name $methodName hWallet $hWallet params $params');
     final result = convertUTF8ToString(pointer: _asyncCallNative(methodNamePointer, hWallet, paramsPointer));
     calloc.free(methodNamePointer);
     calloc.free(paramsPointer);
@@ -163,7 +173,14 @@ class ApiCalls {
 
   static final _tryPullResultNative = zanoApi.lookup<NativeFunction<_try_pull_result>>('try_pull_result').asFunction<_TryPullResult>();
 
-  static String tryPullResult({required int jobId}) => convertUTF8ToString(pointer: _tryPullResultNative(jobId));
+  //static String tryPullResult({required int jobId}) => convertUTF8ToString(pointer: _tryPullResultNative(jobId));
+
+  static String tryPullResult(int jobId) {
+    debugPrint('try_pull_result jobId $jobId');
+    final result = convertUTF8ToString(pointer: _tryPullResultNative(jobId));
+    debugPrint('try_pull_result result $result');
+    return result;
+  }
 
   static final _setupNodeNative = zanoApi.lookup<NativeFunction<_setup_node>>('setup_node').asFunction<_SetupNode>();
 

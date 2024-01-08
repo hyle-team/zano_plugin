@@ -6,15 +6,13 @@ import 'dart:math';
 import 'package:cw_zano/exceptions/transfer_exception.dart';
 import 'package:cw_zano/model/destination.dart';
 import 'package:cw_zano/model/get_recent_txs_and_info_params.dart';
-import 'package:cw_zano/model/get_wallet_status_result.dart';
 import 'package:cw_zano/model/history.dart';
 import 'package:cw_zano/model/transfer_params.dart';
-import 'package:zano/disconnected_widget.dart';
-import 'package:zano/logic/zano_wallet_provider.dart';
-import 'package:zano/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:zano/disconnected_widget.dart';
+import 'package:zano/logic/zano_wallet_provider.dart';
 
 class ConnectedWidget extends StatefulWidget {
   const ConnectedWidget({super.key});
