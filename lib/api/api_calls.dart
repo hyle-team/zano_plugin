@@ -1,6 +1,5 @@
 import 'dart:ffi';
 
-
 import 'package:cw_zano/api/convert_utf8_to_string.dart';
 import 'package:cw_zano/api/structs/utf8_box.dart';
 import 'package:cw_zano/api/zano_api.dart';
@@ -27,17 +26,11 @@ typedef _IsWalletExist = int Function(Pointer<Utf8>);
 typedef _close_wallet = Void Function(Int64);
 typedef _closeWalletStatus = void Function(int hWallet);
 
-// char *get_wallet_info(uint64_t hwallet)
-typedef _get_wallet_info = Pointer<Utf8> Function(Int64);
-typedef _GetWalletInfo = Pointer<Utf8> Function(int hWallet);
-
 // uint64_t get_current_tx_fee(uint64_t priority)
 typedef _get_current_tx_fee = Int64 Function(Int64);
 typedef _getCurrentTxFee = int Function(int priority);
 
-// char* get_wallet_status(uint64_t hwallet)
-typedef _get_wallet_status = Pointer<Utf8> Function(Int64);
-typedef _GetWalletStatus = Pointer<Utf8> Function(int hWallet);
+
 
 // char* get_address_info(char* address)
 typedef _GetAddressInfo = Pointer<Utf8> Function(Pointer<Utf8> address);
@@ -46,12 +39,17 @@ typedef _GetAddressInfo = Pointer<Utf8> Function(Pointer<Utf8> address);
 typedef _async_call = Pointer<Utf8> Function(Pointer<Utf8>, Int64, Pointer<Utf8>);
 typedef _AsyncCall = Pointer<Utf8> Function(Pointer<Utf8>, int, Pointer<Utf8>);
 
-// char* try_pull_result(uint64_t job_id)
-typedef _try_pull_result = Pointer<Utf8> Function(Int64);
-typedef _TryPullResult = Pointer<Utf8> Function(int hWallet);
-
-// char*  get_connectivity_status()
-typedef _GetConnectivityStatus = Pointer<Utf8> Function();
+// // char* try_pull_result(uint64_t job_id)
+// typedef _try_pull_result = Pointer<Utf8> Function(Int64);
+// typedef _TryPullResult = Pointer<Utf8> Function(int hWallet);
+// // char *get_wallet_info(uint64_t hwallet)
+// typedef _get_wallet_info = Pointer<Utf8> Function(Int64);
+// typedef _GetWalletInfo = Pointer<Utf8> Function(int hWallet);
+// // char* get_wallet_status(uint64_t hwallet)
+// typedef _get_wallet_status = Pointer<Utf8> Function(Int64);
+// typedef _GetWalletStatus = Pointer<Utf8> Function(int hWallet);
+typedef _stringFunctionWithInt64 = Pointer<Utf8> Function(Int64);
+typedef _StringFunctionWithIntHWallet = Pointer<Utf8> Function(int hWallet);
 
 // bool setup_node(char *address, char *login, char *password, bool use_ssl, bool is_light_wallet, char *error)
 typedef _setup_node = Int8 Function(Pointer<Utf8>, Pointer<Utf8>?, Pointer<Utf8>?, Int8, Int8, Pointer<Utf8>);
@@ -61,13 +59,20 @@ typedef _SetupNode = int Function(Pointer<Utf8>, Pointer<Utf8>?, Pointer<Utf8>?,
 typedef _set_password = Pointer<Utf8> Function(Int64 hWallet, Pointer<Utf8> password, Pointer<Utf8Box> error);
 typedef _SetPassword = Pointer<Utf8> Function(int hWallet, Pointer<Utf8> password, Pointer<Utf8Box> error);
 
+// char*  get_connectivity_status()
+//typedef _GetConnectivityStatus = Pointer<Utf8> Function();
 // char* get_version()
-typedef _GetVersion = Pointer<Utf8> Function();
+typedef _stringFunction = Pointer<Utf8> Function();
 
 class ApiCalls {
   static final _createWalletNative = zanoApi.lookup<NativeFunction<_create_wallet>>('create_wallet').asFunction<_CreateWallet>();
 
-  static String createWallet({required String path, required String password, String language = '', int nettype = 0}) {
+  static String createWallet({
+    required String path,
+    required String password,
+    String language = '',
+    int nettype = 0,
+  }) {
     final pathPointer = path.toNativeUtf8();
     final passwordPointer = password.toNativeUtf8();
     final languagePointer = language.toNativeUtf8();
@@ -115,11 +120,11 @@ class ApiCalls {
 
   static void closeWallet({required int hWallet}) => _closeWalletNative(hWallet);
 
-  static final _getWalletInfoNative = zanoApi.lookup<NativeFunction<_get_wallet_info>>('get_wallet_info').asFunction<_GetWalletInfo>();
+  static final _getWalletInfoNative = zanoApi.lookup<NativeFunction<_stringFunctionWithInt64>>('get_wallet_info').asFunction<_StringFunctionWithIntHWallet>();
 
   static String getWalletInfo(hWallet) => convertUTF8ToString(pointer: _getWalletInfoNative(hWallet));
 
-  static final _getWalletStatusNative = zanoApi.lookup<NativeFunction<_get_wallet_status>>('get_wallet_status').asFunction<_GetWalletStatus>();
+  static final _getWalletStatusNative = zanoApi.lookup<NativeFunction<_stringFunctionWithInt64>>('get_wallet_status').asFunction<_StringFunctionWithIntHWallet>();
 
   static String getWalletStatus({required int hWallet}) => convertUTF8ToString(pointer: _getWalletStatusNative(hWallet));
 
@@ -127,7 +132,7 @@ class ApiCalls {
 
   static int getCurrentTxFee({required int priority}) => _getCurrentTxFeeNative(priority);
 
-  static final _getConnectivityStatusNative = zanoApi.lookup<NativeFunction<_GetConnectivityStatus>>('get_connectivity_status').asFunction<_GetConnectivityStatus>();
+  static final _getConnectivityStatusNative = zanoApi.lookup<NativeFunction<_stringFunction>>('get_connectivity_status').asFunction<_stringFunction>();
 
   static String getConnectivityStatus() => convertUTF8ToString(pointer: _getConnectivityStatusNative());
 
@@ -171,7 +176,7 @@ class ApiCalls {
     return result;
   }
 
-  static final _tryPullResultNative = zanoApi.lookup<NativeFunction<_try_pull_result>>('try_pull_result').asFunction<_TryPullResult>();
+  static final _tryPullResultNative = zanoApi.lookup<NativeFunction<_stringFunctionWithInt64>>('try_pull_result').asFunction<_StringFunctionWithIntHWallet>();
 
   //static String tryPullResult({required int jobId}) => convertUTF8ToString(pointer: _tryPullResultNative(jobId));
 
@@ -224,7 +229,7 @@ class ApiCalls {
     return result;
   }
 
-  static final _getVersionNative = zanoApi.lookup<NativeFunction<_GetVersion>>('get_version').asFunction<_GetVersion>();
+  static final _getVersionNative = zanoApi.lookup<NativeFunction<_stringFunction>>('get_version').asFunction<_stringFunction>();
 
   static String getVersion() {
     final result = convertUTF8ToString(pointer: _getVersionNative());
