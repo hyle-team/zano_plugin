@@ -6,8 +6,8 @@ class GetRecentTxsAndInfoParams {
   GetRecentTxsAndInfoParams({required this.offset, required this.count, this.updateProvisionInfo = true});
 
   Map<String, dynamic> toJson() => {
-    "offset": offset,
-    "count": count,
-    "update_provision_info": updateProvisionInfo,
+    'offset': offset,
+    'count': count,
+    'update_provision_info': updateProvisionInfo,
   };
 }

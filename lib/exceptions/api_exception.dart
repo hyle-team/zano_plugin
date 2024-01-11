@@ -1,6 +1,6 @@
-import 'package:cw_zano/exceptions/zano_wallet_exception.dart';
+import 'package:cw_zano/exceptions/zano_exception.dart';
 
-class ApiException extends ZanoWalletException {
+class ApiException extends ZanoException {
   final String code;
   final String message;
 

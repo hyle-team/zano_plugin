@@ -85,8 +85,6 @@ class ZanoWalletProvider extends ChangeNotifier {
 
   Future<bool> connect() async {
     final path = await Utils.pathForWallet(name: _walletName);
-    final prefs = await SharedPreferences.getInstance();
-    final password = prefs.getString('wallet_${_walletName}_password') ?? '';
     debugPrint('connect path $path password $defaultPassword');
     final result = zanoWallet.loadWallet(path: path, password: defaultPassword);
     if (result != null) {
@@ -133,15 +131,10 @@ class ZanoWalletProvider extends ChangeNotifier {
   }
 
   Future<TransferResult?> transfer(TransferParams params) async {
-    txFee = zanoWallet.getCurrentTxFee(priority: 1);
-    params.fee = txFee;
-    debugPrint('fee ${params.fee}');
     final result = await zanoWallet.transfer(params);
     notifyListeners();
     return result;
   }
-
-  Future<List<History>?> getRecentTxsAndInfo(GetRecentTxsAndInfoParams params) async => zanoWallet.getRecentTxsAndInfo(params);
 
   void _parseResult(CreateWalletResult result) {
     createWalletResult = result;
@@ -150,6 +143,7 @@ class ZanoWalletProvider extends ChangeNotifier {
     for (final balance in createWalletResult!.wi.balances) {
       assetIds[balance.assetInfo.assetId] = balance.assetInfo.ticker;
     }
+    notifyListeners();
   }
 
   String shorten(String someId) {

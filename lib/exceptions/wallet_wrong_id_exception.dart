@@ -1,3 +1,3 @@
-import 'package:cw_zano/exceptions/zano_wallet_exception.dart';
+import 'package:cw_zano/exceptions/zano_exception.dart';
 
-class WalletWrongIdException extends ZanoWalletException {}
+class WalletWrongIdException extends ZanoException {}

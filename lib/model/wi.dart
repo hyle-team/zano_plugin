@@ -20,7 +20,7 @@ class Wi {
 
   factory Wi.fromJson(Map<String, dynamic> json) => Wi(
         address: json['address'] as String,
-        balances: (json['balances'] as List<dynamic>)
+        balances: json['balances'] == null ? [] : (json['balances'] as List<dynamic>)
             .map((e) => Balance.fromJson(e as Map<String, dynamic>))
             .toList(),
         isAuditable: json['is_auditable'] as bool,

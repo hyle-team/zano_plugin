@@ -1,7 +1,7 @@
-import 'package:cw_zano/exceptions/zano_wallet_exception.dart';
+import 'package:cw_zano/exceptions/zano_exception.dart';
 
-class WalletRestoreFromKeysException implements ZanoWalletException {
+class WalletRestoreFromKeysException implements ZanoException {
   WalletRestoreFromKeysException({required this.message});
-  
+
   final String message;
 }

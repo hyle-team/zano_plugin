@@ -4,7 +4,6 @@ import 'package:cw_zano/api/convert_utf8_to_string.dart';
 import 'package:cw_zano/api/structs/utf8_box.dart';
 import 'package:cw_zano/api/zano_api.dart';
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart';
 
 // char * create_wallet(char *path, char *password, char *language, int32_t networkType, char *error)
 typedef _create_wallet = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Int32, Pointer<Utf8>);
@@ -30,8 +29,6 @@ typedef _closeWalletStatus = void Function(int hWallet);
 typedef _get_current_tx_fee = Int64 Function(Int64);
 typedef _getCurrentTxFee = int Function(int priority);
 
-
-
 // char* get_address_info(char* address)
 typedef _GetAddressInfo = Pointer<Utf8> Function(Pointer<Utf8> address);
 
@@ -40,16 +37,10 @@ typedef _async_call = Pointer<Utf8> Function(Pointer<Utf8>, Int64, Pointer<Utf8>
 typedef _AsyncCall = Pointer<Utf8> Function(Pointer<Utf8>, int, Pointer<Utf8>);
 
 // // char* try_pull_result(uint64_t job_id)
-// typedef _try_pull_result = Pointer<Utf8> Function(Int64);
-// typedef _TryPullResult = Pointer<Utf8> Function(int hWallet);
 // // char *get_wallet_info(uint64_t hwallet)
-// typedef _get_wallet_info = Pointer<Utf8> Function(Int64);
-// typedef _GetWalletInfo = Pointer<Utf8> Function(int hWallet);
 // // char* get_wallet_status(uint64_t hwallet)
-// typedef _get_wallet_status = Pointer<Utf8> Function(Int64);
-// typedef _GetWalletStatus = Pointer<Utf8> Function(int hWallet);
 typedef _stringFunctionWithInt64 = Pointer<Utf8> Function(Int64);
-typedef _StringFunctionWithIntHWallet = Pointer<Utf8> Function(int hWallet);
+typedef _StringFunctionWithIntHWallet = Pointer<Utf8> Function(int);
 
 // bool setup_node(char *address, char *login, char *password, bool use_ssl, bool is_light_wallet, char *error)
 typedef _setup_node = Int8 Function(Pointer<Utf8>, Pointer<Utf8>?, Pointer<Utf8>?, Int8, Int8, Pointer<Utf8>);
@@ -60,11 +51,25 @@ typedef _set_password = Pointer<Utf8> Function(Int64 hWallet, Pointer<Utf8> pass
 typedef _SetPassword = Pointer<Utf8> Function(int hWallet, Pointer<Utf8> password, Pointer<Utf8Box> error);
 
 // char*  get_connectivity_status()
-//typedef _GetConnectivityStatus = Pointer<Utf8> Function();
 // char* get_version()
 typedef _stringFunction = Pointer<Utf8> Function();
 
 class ApiCalls {
+  static String _performApiCall(
+    Pointer<Utf8> Function() apiCall, {
+    List<Pointer<Utf8>>? pointersToFree,
+  }) {
+    try {
+      return convertUTF8ToString(pointer: apiCall());
+    } finally {
+      if (pointersToFree != null) {
+        for (var pointer in pointersToFree) {
+          calloc.free(pointer);
+        }
+      }
+    }
+  }
+
   static final _createWalletNative = zanoApi.lookup<NativeFunction<_create_wallet>>('create_wallet').asFunction<_CreateWallet>();
 
   static String createWallet({
@@ -77,32 +82,68 @@ class ApiCalls {
     final passwordPointer = password.toNativeUtf8();
     final languagePointer = language.toNativeUtf8();
     final errorMessagePointer = ''.toNativeUtf8();
-    final result = convertUTF8ToString(pointer: _createWalletNative(pathPointer, passwordPointer, languagePointer, nettype, errorMessagePointer));
-    calloc.free(pathPointer);
-    calloc.free(passwordPointer);
-    calloc.free(languagePointer);
+    final result = _performApiCall(
+        () => _createWalletNative(
+              pathPointer,
+              passwordPointer,
+              languagePointer,
+              nettype,
+              errorMessagePointer,
+            ),
+        pointersToFree: [pathPointer, passwordPointer, languagePointer, errorMessagePointer]);
 
     return result;
   }
 
   static final _restoreWalletFromSeedNative = zanoApi.lookup<NativeFunction<_restore_wallet_from_seed>>('restore_wallet_from_seed').asFunction<_RestoreWalletFromSeed>();
 
-  static String restoreWalletFromSeed({required String path, required String password, required String seed}) {
+  static String restoreWalletFromSeed({
+    required String path,
+    required String password,
+    required String seed,
+  }) {
     final pathPointer = path.toNativeUtf8();
     final passwordPointer = password.toNativeUtf8();
     final seedPointer = seed.toNativeUtf8();
     final errorMessagePointer = ''.toNativeUtf8();
-    final result = convertUTF8ToString(pointer: _restoreWalletFromSeedNative(pathPointer, passwordPointer, seedPointer, 0, 0, errorMessagePointer));
+    final result = _performApiCall(
+      () => _restoreWalletFromSeedNative(
+        pathPointer,
+        passwordPointer,
+        seedPointer,
+        0,
+        0,
+        errorMessagePointer,
+      ),
+      pointersToFree: [
+        pathPointer,
+        passwordPointer,
+        seedPointer,
+        errorMessagePointer,
+      ],
+    );
     return result;
   }
 
   static final _loadWalletNative = zanoApi.lookup<NativeFunction<_load_wallet>>('load_wallet').asFunction<_LoadWallet>();
 
-  static String loadWallet({required String path, required String password, int nettype = 0}) {
+  static String loadWallet({
+    required String path,
+    required String password,
+    int nettype = 0,
+  }) {
     final pathPointer = path.toNativeUtf8();
     final passwordPointer = password.toNativeUtf8();
-    final result = convertUTF8ToString(
-      pointer: _loadWalletNative(pathPointer, passwordPointer, nettype),
+    final result = _performApiCall(
+      () => _loadWalletNative(
+        pathPointer,
+        passwordPointer,
+        nettype,
+      ),
+      pointersToFree: [
+        pathPointer,
+        passwordPointer,
+      ],
     );
     return result;
   }
@@ -122,11 +163,11 @@ class ApiCalls {
 
   static final _getWalletInfoNative = zanoApi.lookup<NativeFunction<_stringFunctionWithInt64>>('get_wallet_info').asFunction<_StringFunctionWithIntHWallet>();
 
-  static String getWalletInfo(hWallet) => convertUTF8ToString(pointer: _getWalletInfoNative(hWallet));
+  static String getWalletInfo(hWallet) => _performApiCall(() => _getWalletInfoNative(hWallet));
 
   static final _getWalletStatusNative = zanoApi.lookup<NativeFunction<_stringFunctionWithInt64>>('get_wallet_status').asFunction<_StringFunctionWithIntHWallet>();
 
-  static String getWalletStatus({required int hWallet}) => convertUTF8ToString(pointer: _getWalletStatusNative(hWallet));
+  static String getWalletStatus({required int hWallet}) => _performApiCall(() => _getWalletStatusNative(hWallet));
 
   static final _getCurrentTxFeeNative = zanoApi.lookup<NativeFunction<_get_current_tx_fee>>('get_current_tx_fee').asFunction<_getCurrentTxFee>();
 
@@ -134,14 +175,16 @@ class ApiCalls {
 
   static final _getConnectivityStatusNative = zanoApi.lookup<NativeFunction<_stringFunction>>('get_connectivity_status').asFunction<_stringFunction>();
 
-  static String getConnectivityStatus() => convertUTF8ToString(pointer: _getConnectivityStatusNative());
+  static String getConnectivityStatus() => _performApiCall(() => _getConnectivityStatusNative());
 
   static final _getAddressInfoNative = zanoApi.lookup<NativeFunction<_GetAddressInfo>>('get_address_info').asFunction<_GetAddressInfo>();
 
   static String getAddressInfo({required String address}) {
     final addressPointer = address.toNativeUtf8();
-    final result = convertUTF8ToString(pointer: _getAddressInfoNative(addressPointer));
-    calloc.free(addressPointer);
+    final result = _performApiCall(
+      () => _getAddressInfoNative(addressPointer),
+      pointersToFree: [addressPointer],
+    );
     return result;
   }
 
@@ -151,70 +194,70 @@ class ApiCalls {
   static String syncCall({required String methodName, required int hWallet, required String params}) {
     final methodNamePointer = methodName.toNativeUtf8();
     final paramsPointer = params.toNativeUtf8();
-    final result = convertUTF8ToString(pointer: _syncCallNative(methodNamePointer, hWallet, paramsPointer));
-    calloc.free(methodNamePointer);
-    calloc.free(paramsPointer);
+    final result = _performApiCall(
+      () => _syncCallNative(
+        methodNamePointer,
+        hWallet,
+        paramsPointer,
+      ),
+      pointersToFree: [
+        methodNamePointer,
+        paramsPointer,
+      ],
+    );
     return result;
   }
-
-  // static String asyncCall({required String methodName, required int hWallet, required String params}) {
-  //   final methodNamePointer = methodName.toNativeUtf8();
-  //   final paramsPointer = params.toNativeUtf8();
-  //   final result = convertUTF8ToString(pointer: _asyncCallNative(methodNamePointer, hWallet, paramsPointer));
-  //   calloc.free(methodNamePointer);
-  //   calloc.free(paramsPointer);
-  //   return result;
-  // }
 
   static String asyncCall({required String methodName, required int hWallet, required String params}) {
     final methodNamePointer = methodName.toNativeUtf8();
     final paramsPointer = params.toNativeUtf8();
-    debugPrint('async_call method_name $methodName hWallet $hWallet params $params');
-    final result = convertUTF8ToString(pointer: _asyncCallNative(methodNamePointer, hWallet, paramsPointer));
-    calloc.free(methodNamePointer);
-    calloc.free(paramsPointer);
+    final result = _performApiCall(
+      () => _asyncCallNative(
+        methodNamePointer,
+        hWallet,
+        paramsPointer,
+      ),
+      pointersToFree: [
+        methodNamePointer,
+        paramsPointer,
+      ],
+    );
     return result;
   }
 
   static final _tryPullResultNative = zanoApi.lookup<NativeFunction<_stringFunctionWithInt64>>('try_pull_result').asFunction<_StringFunctionWithIntHWallet>();
 
-  //static String tryPullResult({required int jobId}) => convertUTF8ToString(pointer: _tryPullResultNative(jobId));
-
   static String tryPullResult(int jobId) {
-    debugPrint('try_pull_result jobId $jobId');
-    final result = convertUTF8ToString(pointer: _tryPullResultNative(jobId));
-    debugPrint('try_pull_result result $result');
+    final result = _performApiCall(() => _tryPullResultNative(jobId));
     return result;
   }
 
   static final _setupNodeNative = zanoApi.lookup<NativeFunction<_setup_node>>('setup_node').asFunction<_SetupNode>();
 
-  static bool setupNode({required String address, String? login, String? password, bool useSSL = false, bool isLightWallet = false}) {
+  static bool setupNode({
+    required String address,
+    required String login,
+    required String password,
+    bool useSSL = false,
+    bool isLightWallet = false,
+  }) {
     final addressPointer = address.toNativeUtf8();
-    Pointer<Utf8>? loginPointer;
-    Pointer<Utf8>? passwordPointer;
-
-    if (login != null) {
-      loginPointer = login.toNativeUtf8();
-    }
-
-    if (password != null) {
-      passwordPointer = password.toNativeUtf8();
-    }
-
+    final loginPointer = login.toNativeUtf8();
+    final passwordPointer = password.toNativeUtf8();
     final errorMessagePointer = ''.toNativeUtf8();
-    final isSetupNode = _setupNodeNative(addressPointer, loginPointer, passwordPointer, _boolToInt(useSSL), _boolToInt(isLightWallet), errorMessagePointer) != 0;
+    final isSetupNode = _setupNodeNative(
+          addressPointer,
+          loginPointer,
+          passwordPointer,
+          _boolToInt(useSSL),
+          _boolToInt(isLightWallet),
+          errorMessagePointer,
+        ) !=
+        0;
 
     calloc.free(addressPointer);
-
-    if (loginPointer != null) {
-      calloc.free(loginPointer);
-    }
-
-    if (passwordPointer != null) {
-      calloc.free(passwordPointer);
-    }
-
+    calloc.free(loginPointer);
+    calloc.free(passwordPointer);
     return isSetupNode;
   }
 
@@ -223,8 +266,14 @@ class ApiCalls {
   static String setPassword({required int hWallet, required String password}) {
     final passwordPointer = password.toNativeUtf8();
     final errorMessagePointer = calloc<Utf8Box>();
-    final result = convertUTF8ToString(pointer: _setPasswordNative(hWallet, passwordPointer, errorMessagePointer));
-    calloc.free(passwordPointer);
+    final result = _performApiCall(
+      () => _setPasswordNative(
+        hWallet,
+        passwordPointer,
+        errorMessagePointer,
+      ),
+      pointersToFree: [passwordPointer],
+    );
     calloc.free(errorMessagePointer);
     return result;
   }
@@ -232,7 +281,7 @@ class ApiCalls {
   static final _getVersionNative = zanoApi.lookup<NativeFunction<_stringFunction>>('get_version').asFunction<_stringFunction>();
 
   static String getVersion() {
-    final result = convertUTF8ToString(pointer: _getVersionNative());
+    final result = _performApiCall(() => _getVersionNative());
     return result;
   }
 

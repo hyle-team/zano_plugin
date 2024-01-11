@@ -13,8 +13,8 @@ class Destination {
       );
 
   Map<String, dynamic> toJson() => {
-    "amount": amount,
-    "address": address,
-    "asset_id": assetId,
+    'amount': amount,
+    'address': address,
+    'asset_id': assetId,
   };
 }

@@ -1,12 +1,14 @@
 import 'package:cw_zano/api/api_calls.dart';
+import 'package:cw_zano/exceptions/zano_rpc_exceptions.dart';
 import 'package:cw_zano/exceptions/transfer_exception.dart';
 import 'package:cw_zano/exceptions/unitialized_exception.dart';
 import 'package:cw_zano/exceptions/wallet_wrong_id_exception.dart';
-import 'package:cw_zano/exceptions/zano_wallet_exception.dart';
+import 'package:cw_zano/exceptions/zano_exception.dart';
 import 'package:cw_zano/model/create_wallet_result.dart';
 import 'package:cw_zano/model/get_address_info_result.dart';
 import 'package:cw_zano/model/get_connectivity_status_result.dart';
 import 'package:cw_zano/model/get_recent_txs_and_info_params.dart';
+import 'package:cw_zano/model/get_recent_txs_and_info_result.dart';
 import 'package:cw_zano/model/get_wallet_info_result.dart';
 import 'package:cw_zano/model/get_wallet_status_result.dart';
 import 'package:cw_zano/model/history.dart';
@@ -33,61 +35,49 @@ class ZanoWallet {
   //   return pretty;
   // }
 
-  Future<String> _invokeMethod(int hWallet, String methodName, String params) async {
-    logger.i('invoke method $methodName params $params');
-    final invokeResult = ApiCalls.asyncCall(
-        methodName: 'invoke',
-        hWallet: hWallet,
-        params: json.encode({
-          'method': methodName,
-          'params': params,
-        }));
-    logger.i('invoke result $invokeResult');
-    final map = json.decode(invokeResult);
+  // Future<String> _invokeMethod(int hWallet, String methodName, String params) async {
+  //   logger.i('invoke method $methodName params $params');
+  //   final invokeResult = ApiCalls.asyncCall(
+  //       methodName: 'invoke',
+  //       hWallet: hWallet,
+  //       params: json.encode({
+  //         'method': methodName,
+  //         'params': params,
+  //       }));
+  //   logger.i('invoke result $invokeResult');
+  //   final map = json.decode(invokeResult);
+  //   if (map['job_id'] != null) {
+  //     await Future.delayed(Duration(seconds: 3));
+  //     final result = ApiCalls.tryPullResult(map['job_id'] as int);
+  //     return result;
+  //   }
+  //   return invokeResult;
+  // }
+
+  Future<String> _invokeMethod(int hWallet, String methodName, Object params) async {
+    logger.i('invokeMethod hWallet: $hWallet methodName: $methodName params type: ${params.runtimeType} encoded: ${jsonEncode(params)}');
+    var invokeResult = ApiCalls.asyncCall(methodName: 'invoke', hWallet: hWallet, params: '{"method": "$methodName","params": ${jsonEncode(params)}}');
+    logger.i('async_call result $invokeResult');
+    var map = json.decode(invokeResult) as Map<String, dynamic>;
+    int attempts = 0;
     if (map['job_id'] != null) {
-      await Future.delayed(Duration(seconds: 3));
-      final result = ApiCalls.tryPullResult(map['job_id'] as int);
-      return result;
+      do {
+        if (map['job_id'] != null) {
+          await Future.delayed(Duration(milliseconds: attempts < 2 ? 100 : 500));
+          final jobId = map['job_id'] as int;
+          logger.i('tryPullResult jobId: $jobId');
+          final result = ApiCalls.tryPullResult(jobId);
+          logger.i('tryPullResult result $result');
+          map = jsonDecode(result);
+          if (map['status'] != null && map['status'] == statusDelivered && map['result'] != null) {
+            return result;
+          }
+        }
+      } while (++attempts < maxAttempts);
+      return '';
     }
     return invokeResult;
   }
-
-  /*Future<String> _invokeMethod(int hWallet, String methodName, String params, {required bool async}) async {
-    logger.i('invoke method ${async ? "async" : "sync"} methodName: $methodName params: ${_pretty(params)}');
-    final methodParams = json.encode({
-      'method': methodName,
-      'params': params,
-    });
-    if (async) {
-      logger.i('async_call method_name: $methodName hWallet: $hWallet params: ${_pretty(methodParams)}');
-      final invokeResult = ApiCalls.asyncCall(methodName: 'invoke', hWallet: hWallet, params: methodParams);
-      logger.i('async_call result $invokeResult');
-      var map = json.decode(invokeResult) as Map<String, dynamic>;
-      int attempts = 0;
-      if (map['job_id'] != null) {
-        do {
-          if (map['job_id'] != null) {
-            await Future.delayed(Duration(milliseconds: attempts < 2 ? 100 : 500));
-            final jobId = map['job_id'] as int;
-            logger.i('try_pull_result jobId $jobId');
-            final result = ApiCalls.tryPullResult(jobId: jobId);
-            logger.i('try_pull_result result ${_pretty(result)}');
-            map = jsonDecode(result);
-            if (map['status'] != null && map['status'] == statusDelivered && map['result'] != null) {
-              return result;
-            }
-          }
-        } while (++attempts < maxAttempts);
-        return '';
-      }
-      return invokeResult;
-    } else {
-      logger.i('sync_call method_name $methodName hWallet $hWallet params $methodParams');
-      final invokeResult = ApiCalls.syncCall(methodName: 'invoke', hWallet: hWallet, params: methodParams);
-      logger.i('invoke result $invokeResult');
-      return invokeResult;
-    }
-  }*/
 
   String getVersion() => ApiCalls.getVersion();
 
@@ -197,33 +187,63 @@ class ZanoWallet {
     return StoreResult.fromJson(map['result']['result']);
   }
 
-  Future<TransferResult?> transfer(TransferParams params) async {
+  Future<TransferResult> transfer(TransferParams params) async {
+    // final result = await _invokeMethod(hWallet, 'transfer', params);
+    // Map<String, dynamic> map;
+    // try {
+    //   map = jsonDecode(result);
+    // } catch (e) {
+    //   throw ZanoException();
+    // }
     var invokeResult = ApiCalls.asyncCall(
       methodName: 'invoke',
       hWallet: hWallet,
       params: '{"method": "transfer","params": ${jsonEncode(params)}}',
     );
-    //final result = await _invokeMethod(hWallet, 'transfer', jsonEncode(params));
     var map = json.decode(invokeResult);
     if (map['job_id'] != null) {
       await Future.delayed(Duration(seconds: 3));
       invokeResult = ApiCalls.tryPullResult(map['job_id'] as int);
     }
     map = jsonDecode(invokeResult);
-    if (map['result'] == null) throw new ZanoWalletException();
-    if (map['result']['error'] != null)
-      throw TransferException(
-        map['result']['error']['code'] as int,
-        map['result']['error']['message'] as String,
-      );
+    if (map['result'] == null) throw ZanoException();
+    if (map['result']['error'] != null) throw _exceptionFromMapResultError(map['result']['error']);
     if (map['result']['result'] != null) return TransferResult.fromJson(map['result']['result']);
-    return null;
+    throw ZanoException();
   }
 
-  Future<List<History>?> getRecentTxsAndInfo(GetRecentTxsAndInfoParams params) async {
-    final result = await _invokeMethod(hWallet, 'get_recent_txs_and_info', json.encode(params));
-    final map = jsonDecode(result);
-    if (map == null || map["result"] == null || map["result"]["result"] == null || map["result"]["result"]["transfers"] == null) return null;
-    return (map["result"]["result"]["transfers"] as List<dynamic>).map((e) => History.fromJson(e as Map<String, dynamic>)).toList();
+  Exception _exceptionFromMapResultError(Map<String, dynamic> map) {
+    if (map['code'] != null && map['code'] is int && map['message'] != null && map['message'] is String) {
+      return ZanoRpcException.fromCodeAndMessage(map['code'] as int, map['message'] as String);
+    } else {
+      return ZanoException();
+    }
+  }
+
+  Future<GetRecentTxsAndInfoResult> getRecentTxsAndInfo(GetRecentTxsAndInfoParams params) async {
+    final result = await _invokeMethod(hWallet, 'get_recent_txs_and_info', params);
+    Map<String, dynamic> map;
+    try {
+      map = jsonDecode(result);
+    } catch (e) {
+      throw ZanoException();
+    }
+    /*var invokeResult = ApiCalls.asyncCall(
+      methodName: 'invoke',
+      hWallet: hWallet,
+      params: '{"method": "get_recent_txs_and_info","params": ${jsonEncode(params)}}',
+    );
+    var map = json.decode(invokeResult);
+    if (map['job_id'] != null) {
+      await Future.delayed(Duration(seconds: 3));
+      invokeResult = ApiCalls.tryPullResult(map['job_id'] as int);
+    }
+    map = jsonDecode(invokeResult);*/
+    if (map['result'] == null) throw ZanoException();
+    if (map['result']['error'] != null) throw _exceptionFromMapResultError(map['result']['error']);
+    if (map['result']['result'] != null) return GetRecentTxsAndInfoResult.fromJson(map['result']['result']);
+    throw ZanoException();
+    //if (map["result"]["result"] == null || map["result"]["result"]["transfers"] == null) return [];
+    //return (map["result"]["result"]["transfers"] as List<dynamic>).map((e) => History.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

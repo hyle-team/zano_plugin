@@ -8,6 +8,7 @@ import 'package:cw_zano/model/destination.dart';
 import 'package:cw_zano/model/get_recent_txs_and_info_params.dart';
 import 'package:cw_zano/model/history.dart';
 import 'package:cw_zano/model/transfer_params.dart';
+import 'package:cw_zano/zano_wallet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -29,11 +30,12 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
   late final TextEditingController _amount = TextEditingController(text: defaultAmount.toString());
   late String _amountFormatted = _mulBy10_12(defaultAmount);
   late final TextEditingController _paymentId = TextEditingController();
-  late final TextEditingController _comment = TextEditingController(text: "test");
+  late final TextEditingController _comment = TextEditingController(text: 'test');
   bool _pushPayer = false;
   bool _hideReceiver = true;
-  String _transferResult = '';
-  List<History>? _transactions;
+  String _transferResult = '', _transactionsError = '';
+  int _lastItemIndex = 0, _totalTransfers = 0, _transferEntriesCount = 0, _transfersCount = 0;
+  List<History> _transactions = [];
 
   @override
   void initState() {
@@ -101,13 +103,16 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
 
   Widget _transactionsTab(BuildContext context, ZanoWalletProvider zanoWallet) {
     return Column(children: [
-      TextButton(onPressed: () => _getTransactions(zanoWallet), child: Text('Update list of Transactions')),
+      Text('Last item index: $_lastItemIndex, total transfers: $_totalTransfers'),
+      Text('Transfer entries count: $_transferEntriesCount, transfers count: $_transfersCount'),
+      if (_transactionsError.isNotEmpty) Text('Transactions result $_transactionsError'),
+      TextButton(onPressed: () => _getTransactions(zanoWallet.zanoWallet), child: Text('Update list of Transactions')),
       Expanded(child: _transactionsListView(_transactions)),
     ]);
   }
 
   Widget _historyTab(BuildContext context, ZanoWalletProvider zanoWallet) {
-    if (zanoWallet.createWalletResult == null) return Text("Empty");
+    if (zanoWallet.createWalletResult == null) return Text('Empty');
     return _transactionsListView(zanoWallet.createWalletResult!.recentHistory.history);
   }
 
@@ -120,34 +125,43 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
         if (item.remoteAddresses.isNotEmpty) {
           addr = Provider.of<ZanoWalletProvider>(context, listen: false).shorten(item.remoteAddresses.first);
         } else {
-          addr = "???";
+          addr = 'empty';
         }
+        final txHash = Provider.of<ZanoWalletProvider>(context, listen: false).shorten(item.txHash);
         return Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text("${index + 1}. ${_dateTime(item.timestamp)} Remote addr: $addr"),
+                Text('${index + 1}. ${_dateTime(item.timestamp)} Remote addr: $addr'),
                 if (item.remoteAddresses.isNotEmpty)
                   IconButton(
                     onPressed: () => Clipboard.setData(ClipboardData(text: item.remoteAddresses.first)),
                     icon: Icon(Icons.copy),
                   ),
-                if (item.remoteAliases.isNotEmpty) Text(" (${item.remoteAliases.first})"),
+                if (item.remoteAliases.isNotEmpty) Text(' (${item.remoteAliases.first})'),
               ],
             ),
-            Text("  txHash: ${item.txHash} comment: ${item.comment}"),
-            Text("  paymentId: ${item.paymentId} height: ${item.height} fee: ${_divBy10_12(item.fee)}"),
-            if (item.employedEntries.receive.isNotEmpty) Text("  Receive", style: TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Text('  txHash: $txHash '),
+                IconButton(
+                  onPressed: () => Clipboard.setData(ClipboardData(text: item.txHash)),
+                  icon: Icon(Icons.copy, size: 16),
+                ),
+              ],
+            ),
+            Text('  comment: ${item.comment} paymentId: ${item.paymentId} height: ${item.height} fee: ${_divBy10_12(item.fee)}'),
+            if (item.employedEntries.receive.isNotEmpty) Text('  Receive', style: TextStyle(fontWeight: FontWeight.bold)),
             for (int i = 0; i < item.employedEntries.receive.length; i++)
               Text(
                   '  ${item.employedEntries.receive[i].index}. ${Provider.of<ZanoWalletProvider>(context, listen: false).getAssetName(item.employedEntries.receive[i].assetId)} ${_divBy10_12(item.employedEntries.receive[i].amount)}'),
-            if (item.employedEntries.send.isNotEmpty) Text("  Spent", style: TextStyle(fontWeight: FontWeight.bold)),
+            if (item.employedEntries.send.isNotEmpty) Text('  Spent', style: TextStyle(fontWeight: FontWeight.bold)),
             for (int i = 0; i < item.employedEntries.send.length; i++)
               Text(
                   '  ${item.employedEntries.send[i].index}. ${Provider.of<ZanoWalletProvider>(context, listen: false).getAssetName(item.employedEntries.send[i].assetId)} ${_divBy10_12(item.employedEntries.send[i].amount)}'),
-            if (item.subtransfers.isNotEmpty) Text("  Subtransfers", style: TextStyle(fontWeight: FontWeight.bold)),
+            if (item.subtransfers.isNotEmpty) Text('  Subtransfers', style: TextStyle(fontWeight: FontWeight.bold)),
             for (int i = 0; i < item.subtransfers.length; i++)
               Text(
                   '  ${item.subtransfers[i].isIncome ? 'In' : 'Out'}. ${Provider.of<ZanoWalletProvider>(context, listen: false).getAssetName(item.subtransfers[i].assetId)} ${_divBy10_12(item.subtransfers[i].amount)}'),
@@ -173,16 +187,16 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
                   controller: _destinationAddress,
                 ),
               ),
-              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: _destinationAddress.text)), icon: Icon(Icons.copy)),
+              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: _destinationAddress.text)), icon: Icon(Icons.copy, size: 16)),
               IconButton(
                   onPressed: () async {
-                    final clipboard = await Clipboard.getData("text/plain");
+                    final clipboard = await Clipboard.getData('text/plain');
                     if (clipboard == null || clipboard.text == null) return;
                     setState(() {
                       _destinationAddress.text = clipboard.text!;
                     });
                   },
-                  icon: Icon(Icons.paste)),
+                  icon: Icon(Icons.paste, size: 16)),
             ],
           ),
           Row(
@@ -193,12 +207,16 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
                 child: TextField(
                   controller: _amount,
                   onChanged: (value) => setState(() {
-                    _amountFormatted = _mulBy10_12(double.parse(value));
+                    try {
+                      _amountFormatted = _mulBy10_12(double.parse(value));
+                    } catch (e) {
+                      _amountFormatted = '0';
+                    }
                   }),
                 ),
               ),
-              Text("= ${_amountFormatted}"),
-              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: _amount.text)), icon: Icon(Icons.copy)),
+              Text('= ${_amountFormatted}'),
+              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: _amount.text)), icon: Icon(Icons.copy, size: 16)),
             ],
           ),
           Text('Fee: ${_divBy10_12(zanoWallet.txFee)} (${zanoWallet.txFee})'),
@@ -249,7 +267,7 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               )),
-              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: zanoWallet.myAddress)), icon: Icon(Icons.copy)),
+              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: zanoWallet.myAddress)), icon: Icon(Icons.copy, size: 16)),
             ],
           ),
           for (final balance in zanoWallet.balances) Text('Balance (${balance.assetInfo.ticker}) total: ${_divBy10_12(balance.total)}, unlocked: ${_divBy10_12(balance.unlocked)}'),
@@ -257,11 +275,11 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
             children: [
               Text('Seed ', style: TextStyle(fontWeight: FontWeight.bold)),
               Expanded(child: Text(zanoWallet.seed, maxLines: 1, overflow: TextOverflow.ellipsis)),
-              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: zanoWallet.seed)), icon: Icon(Icons.copy)),
+              IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: zanoWallet.seed)), icon: Icon(Icons.copy, size: 16)),
             ],
           ),
           const SizedBox(height: 16),
-          Text('Wallet Status  (${zanoWallet.walletSyncing ? "SYNC" : "CONNECTED"})', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text('Wallet Status  (${zanoWallet.walletSyncing ? 'SYNC' : 'CONNECTED'})', style: TextStyle(fontWeight: FontWeight.bold)),
           if (walletStatus != null) ...[
             Row(
               children: [
@@ -303,6 +321,7 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
 
   Future<void> _transfer(ZanoWalletProvider zanoWallet) async {
     try {
+      final txFee = zanoWallet.zanoWallet.getCurrentTxFee(priority: 0);
       final result = await zanoWallet.transfer(TransferParams(
         destinations: [
           Destination(
@@ -311,7 +330,7 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
             assetId: zanoWallet.assetIds.keys.first,
           )
         ],
-        fee: 0,
+        fee: txFee,
         mixin: _mixin,
         paymentId: _paymentId.text,
         comment: _comment.text,
@@ -321,18 +340,31 @@ class _ConnectedWidgetState extends State<ConnectedWidget> {
       if (result == null) {
         setState(() => _transferResult = 'empty result');
       } else {
-        setState(() => _transferResult = "transfer tx hash ${result.txHash} size ${result.txSize} ");
+        setState(() => _transferResult = 'transfer tx hash ${result.txHash} size ${result.txSize} ');
       }
-    } on TransferException catch (e) {
-      setState(() => _transferResult = "error code ${e.code} message ${e.message}");
+    } catch (e) {
+      setState(() => _transferResult = e.toString());
     }
   }
 
-  Future<void> _getTransactions(ZanoWalletProvider zanoWallet) async {
-    final transactions = await zanoWallet.getRecentTxsAndInfo(GetRecentTxsAndInfoParams(offset: 0, count: 30));
-    setState(() {
-      _transactions = transactions;
-    });
+  Future<void> _getTransactions(ZanoWallet zanoWallet) async {
+    try {
+      final result = await zanoWallet.getRecentTxsAndInfo(GetRecentTxsAndInfoParams(offset: 0, count: 30));
+      setState(() {
+        _lastItemIndex = result.lastItemIndex;
+        _totalTransfers = result.totalTransfers;
+        _transferEntriesCount = result.pi.transferEntriesCount;
+        _transfersCount = result.pi.transfersCount;
+        _transactions = result.transfers;
+        _transactionsError = '';
+      });
+    } catch (e) {
+      setState(() {
+        _lastItemIndex = _totalTransfers = _transferEntriesCount = _transfersCount = 0;
+        _transactions = [];
+        _transactionsError = e.toString();
+      });
+    }
   }
 
   String _divBy10_12(int value) {

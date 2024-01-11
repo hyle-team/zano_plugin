@@ -1,4 +1,4 @@
-class ZanoWalletException implements Exception {
+class ZanoException implements Exception {
   @override
   String toString() => '${this.runtimeType}';
 }

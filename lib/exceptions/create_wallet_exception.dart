@@ -1,9 +1,9 @@
-import 'package:cw_zano/exceptions/zano_wallet_exception.dart';
+import 'package:cw_zano/exceptions/zano_exception.dart';
 
-class CreateWalletException extends ZanoWalletException {
+class CreateWalletException extends ZanoException {
   final String message;
 
-  CreateWalletException(this.message): super();
+  CreateWalletException(this.message) : super();
   @override
   String toString() => '${this.runtimeType}(message: $message)';
 }
