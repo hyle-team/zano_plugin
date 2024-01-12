@@ -4,12 +4,13 @@ import 'dart:math';
 import 'package:cw_zano/model/balance.dart';
 import 'package:cw_zano/model/create_wallet_result.dart';
 import 'package:cw_zano/model/destination.dart';
+import 'package:cw_zano/model/get_address_info_result.dart';
 import 'package:cw_zano/model/get_connectivity_status_result.dart';
 import 'package:cw_zano/model/get_recent_txs_and_info_params.dart';
 import 'package:cw_zano/model/get_recent_txs_and_info_result.dart';
 import 'package:cw_zano/model/get_wallet_info_result.dart';
 import 'package:cw_zano/model/get_wallet_status_result.dart';
-import 'package:cw_zano/model/history.dart';
+import 'package:cw_zano/model/store_result.dart';
 import 'package:cw_zano/model/transfer_params.dart';
 import 'package:cw_zano/model/transfer_result.dart';
 import 'package:cw_zano/utils/utils.dart';
@@ -17,20 +18,22 @@ import 'package:cw_zano/zano_wallet.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../consts.dart';
+import 'consts.dart';
 
 class ZanoWalletProvider extends ChangeNotifier {
   final int mixin = 10;
   static const defaultPassword = 'defaultPassword';
   final zanoWallet = ZanoWallet();
-  GetConnectivityStatusResult? connectivityStatus;
+  GetAddressInfoResult? addressInfoResult;
+  GetConnectivityStatusResult? connectivityStatusResult;
   CreateWalletResult? createWalletResult;
-  GetWalletInfoResult? getWalletInfoResult;
-  GetWalletStatusResult? getWalletStatusResult;
-  GetRecentTxsAndInfoResult? getRecentTxsAndInfoResult;
-  String? getRecentTxsAndInfoError;
+  GetWalletInfoResult? walletInfoResult;
+  GetWalletStatusResult? walletStatusResult;
+  GetRecentTxsAndInfoResult? recentTxsAndInfoResult;
+  String? recentTxsAndInfoError;
   TransferResult? transferResult;
   String? transferError;
+  StoreResult? storeResult;
   List<Balance> balances = [];
   String seed = '', version = '';
   final assetIds = <String, String>{};
@@ -58,18 +61,23 @@ class ZanoWalletProvider extends ChangeNotifier {
     _walletName = prefs.getString(Consts.walletName) ?? 'wallet';
     isWalletExists = zanoWallet.isWalletExist(path: await Utils.pathForWallet(name: _walletName));
     version = zanoWallet.getVersion();
+    int seconds = 0;
     _timer = Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
-      connectivityStatus = zanoWallet.getConnectivityStatus();
+      connectivityStatusResult = zanoWallet.getConnectivityStatus();
       if (_connected) {
-        getWalletStatusResult = zanoWallet.getWalletStatus();
-        if (!getWalletStatusResult!.isInLongRefresh && getWalletStatusResult!.walletState == 2) {
+        walletStatusResult = zanoWallet.getWalletStatus();
+        if (!walletStatusResult!.isInLongRefresh && walletStatusResult!.walletState == 2) {
           walletSyncing = false;
-          getWalletInfoResult = await zanoWallet.getWalletInfo();
-          seed = getWalletInfoResult!.wiExtended.seed;
-          balances = getWalletInfoResult!.wi.balances;
+          walletInfoResult = await zanoWallet.getWalletInfo();
+          seed = walletInfoResult!.wiExtended.seed;
+          balances = walletInfoResult!.wi.balances;
           assetIds.clear();
-          for (final balance in getWalletInfoResult!.wi.balances) {
+          for (final balance in walletInfoResult!.wi.balances) {
             assetIds[balance.assetInfo.assetId] = balance.assetInfo.ticker;
+          }
+          if (++seconds >= 60) {
+            storeResult = await zanoWallet.store();
+            seconds = 0;
           }
         } else {
           walletSyncing = true;
@@ -96,7 +104,7 @@ class ZanoWalletProvider extends ChangeNotifier {
     debugPrint('connect path $path password $defaultPassword');
     final result = zanoWallet.loadWallet(path: path, password: defaultPassword);
     if (result != null) {
-      _parseResult(result);
+      _parseCreateWalletResult(result);
       _connected = true;
       myAddress = result.wi.address;
       return true;
@@ -110,7 +118,7 @@ class ZanoWalletProvider extends ChangeNotifier {
     debugPrint('create name $_walletName path $path password $defaultPassword');
     final result = zanoWallet.createWallet(path: path, password: defaultPassword);
     if (result != null) {
-      _parseResult(result);
+      _parseCreateWalletResult(result);
       _connected = true;
       myAddress = result.wi.address;
       return true;
@@ -124,7 +132,7 @@ class ZanoWalletProvider extends ChangeNotifier {
     debugPrint('restore $_walletName path $path');
     final result = zanoWallet.restoreWalletFromSeed(path: path, password: defaultPassword, seed: seed);
     if (result != null) {
-      _parseResult(result);
+      _parseCreateWalletResult(result);
       _connected = true;
       myAddress = result.wi.address;
       return true;
@@ -138,7 +146,7 @@ class ZanoWalletProvider extends ChangeNotifier {
     zanoWallet.closeWallet();
   }
 
-  void _parseResult(CreateWalletResult result) {
+  void _parseCreateWalletResult(CreateWalletResult result) {
     createWalletResult = result;
     balances = createWalletResult!.wi.balances;
     assetIds.clear();
@@ -161,16 +169,29 @@ class ZanoWalletProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> store() => zanoWallet.store();
+  Future store() async {
+    storeResult = await zanoWallet.store();
+    notifyListeners();
+  }
 
   Future getRecentTxsAndInfo() async {
     try {
-      getRecentTxsAndInfoResult = await zanoWallet.getRecentTxsAndInfo(GetRecentTxsAndInfoParams(offset: 0, count: 30));
-      getRecentTxsAndInfoError = null;
+      recentTxsAndInfoResult = await zanoWallet.getRecentTxsAndInfo(GetRecentTxsAndInfoParams(offset: 0, count: 30));
+      recentTxsAndInfoError = null;
     } catch (e) {
-      getRecentTxsAndInfoResult = null;
-      getRecentTxsAndInfoError = e.toString();
+      recentTxsAndInfoResult = null;
+      recentTxsAndInfoError = e.toString();
     }
+    notifyListeners();
+  }
+
+  Future getAddressInfo(String address) async {
+    addressInfoResult = zanoWallet.getAddressInfo(address: address);
+    notifyListeners();
+  }
+
+  Future getFee() async {
+    txFee = zanoWallet.getCurrentTxFee(priority: 0);
     notifyListeners();
   }
 
@@ -200,11 +221,6 @@ class ZanoWalletProvider extends ChangeNotifier {
         hideReceiver: hideReceiver,
       ));
       transferError = null;
-      // if (result == null) {
-      //   setState(() => _transferResult = 'empty result');
-      // } else {
-      //   setState(() => _transferResult = 'transfer tx hash ${result.txHash} size ${result.txSize} ');
-      // }
     } catch (e) {
       transferResult = null;
       transferError = e.toString();

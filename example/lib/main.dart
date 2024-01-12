@@ -3,7 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:zano/connected_widget.dart';
 import 'package:zano/disconnected_widget.dart';
-import 'package:zano/logic/zano_wallet_provider.dart';
+import 'package:zano/zano_wallet_provider.dart';
 
 
 

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zano/connected_widget.dart';
-import 'package:zano/logic/zano_wallet_provider.dart';
+import 'package:zano/zano_wallet_provider.dart';
 
 class DisconnectedWidget extends StatefulWidget {
   const DisconnectedWidget({super.key});
@@ -15,9 +15,7 @@ class DisconnectedWidget extends StatefulWidget {
 
 class _DisconnectedWidgetState extends State<DisconnectedWidget> {
   TextEditingController? _name;
-  late final TextEditingController _seed = TextEditingController(
-      text:
-          "palm annoy brush task almost through here sent doll guilty smart horse mere canvas flirt advice fruit known shower happiness steel autumn beautiful approach anymore canvas");
+  late final TextEditingController _seed = TextEditingController(text: '');
   bool _loading = false;
 
   @override
@@ -35,7 +33,7 @@ class _DisconnectedWidgetState extends State<DisconnectedWidget> {
   @override
   Widget build(BuildContext context) {
     return Consumer<ZanoWalletProvider>(
-      builder: (context, zanoWallet, _) => Scaffold(
+      builder: (context, provider, _) => Scaffold(
         appBar: AppBar(title: Text('Disconnected')),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -47,17 +45,17 @@ class _DisconnectedWidgetState extends State<DisconnectedWidget> {
                     opacity: _loading ? 0.5 : 1,
                     child: Column(
                       children: [
-                        Text('Version: ${zanoWallet.version}'),
-                        if (zanoWallet.connectivityStatus != null)
-                          Text('Is Online: ${zanoWallet.connectivityStatus!.isOnline}, IsServerBusy: ${zanoWallet.connectivityStatus!.isServerBusy}'),
-                        TextField(controller: _name, decoration: const InputDecoration(labelText: 'Wallet name'), onChanged: (value) => zanoWallet.walletName = value),
+                        Text('Version: ${provider.version}'),
+                        if (provider.connectivityStatusResult != null)
+                          Text('Is Online: ${provider.connectivityStatusResult!.isOnline}, IsServerBusy: ${provider.connectivityStatusResult!.isServerBusy}'),
+                        TextField(controller: _name, decoration: const InputDecoration(labelText: 'Wallet name'), onChanged: (value) => provider.walletName = value),
                         const SizedBox(height: 16),
-                        Text('Is wallet exists: ${zanoWallet.isWalletExists}'),
+                        Text('Is wallet exists: ${provider.isWalletExists}'),
                         TextButton(
-                            onPressed: zanoWallet.isWalletExists
+                            onPressed: provider.isWalletExists
                                 ? null
                                 : () async {
-                                    final result = await zanoWallet.create();
+                                    final result = await provider.create();
                                     if (result) {
                                       if (!mounted) return;
                                       Navigator.of(context).pushReplacementNamed(ConnectedWidget.route, arguments: result);
@@ -66,10 +64,10 @@ class _DisconnectedWidgetState extends State<DisconnectedWidget> {
                             child: Text('Create New Wallet')),
                         const SizedBox(height: 16),
                         TextButton(
-                          onPressed: !zanoWallet.isWalletExists
+                          onPressed: !provider.isWalletExists
                               ? null
                               : () async {
-                                  final result = await Provider.of<ZanoWalletProvider>(context, listen: false).connect();
+                                  final result = await provider.connect();
                                   if (result) {
                                     if (!mounted) return;
                                     Navigator.of(context).pushReplacementNamed(ConnectedWidget.route, arguments: result);
@@ -80,10 +78,10 @@ class _DisconnectedWidgetState extends State<DisconnectedWidget> {
                         const SizedBox(height: 16),
                         TextField(controller: _seed, decoration: InputDecoration(labelText: 'Wallet seed')),
                         TextButton(
-                          onPressed: zanoWallet.isWalletExists
+                          onPressed: provider.isWalletExists
                               ? null
                               : () async {
-                                  final result = await zanoWallet.restore(_seed.text);
+                                  final result = await provider.restore(_seed.text);
                                   if (result) {
                                     if (!mounted) return;
                                     Navigator.of(context).pushReplacementNamed(ConnectedWidget.route, arguments: result);
@@ -92,7 +90,7 @@ class _DisconnectedWidgetState extends State<DisconnectedWidget> {
                           child: Text('Restore from seed'),
                         ),
                         const SizedBox(height: 16),
-                        TextButton(child: Text('Close Wallet'), onPressed: () => zanoWallet.close()),
+                        TextButton(child: Text('Close Wallet'), onPressed: () => provider.close()),
                       ],
                     ),
                   ),
