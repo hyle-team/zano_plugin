@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cw_zano/model/balance.dart';
 import 'package:cw_zano/model/create_wallet_result.dart';
+import 'package:cw_zano/model/destination.dart';
 import 'package:cw_zano/model/get_connectivity_status_result.dart';
 import 'package:cw_zano/model/get_recent_txs_and_info_params.dart';
+import 'package:cw_zano/model/get_recent_txs_and_info_result.dart';
 import 'package:cw_zano/model/get_wallet_info_result.dart';
 import 'package:cw_zano/model/get_wallet_status_result.dart';
 import 'package:cw_zano/model/history.dart';
@@ -17,12 +20,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../consts.dart';
 
 class ZanoWalletProvider extends ChangeNotifier {
+  final int mixin = 10;
   static const defaultPassword = 'defaultPassword';
   final zanoWallet = ZanoWallet();
   GetConnectivityStatusResult? connectivityStatus;
   CreateWalletResult? createWalletResult;
   GetWalletInfoResult? getWalletInfoResult;
   GetWalletStatusResult? getWalletStatusResult;
+  GetRecentTxsAndInfoResult? getRecentTxsAndInfoResult;
+  String? getRecentTxsAndInfoError;
+  TransferResult? transferResult;
+  String? transferError;
   List<Balance> balances = [];
   String seed = '', version = '';
   final assetIds = <String, String>{};
@@ -130,12 +138,6 @@ class ZanoWalletProvider extends ChangeNotifier {
     zanoWallet.closeWallet();
   }
 
-  Future<TransferResult?> transfer(TransferParams params) async {
-    final result = await zanoWallet.transfer(params);
-    notifyListeners();
-    return result;
-  }
-
   void _parseResult(CreateWalletResult result) {
     createWalletResult = result;
     balances = createWalletResult!.wi.balances;
@@ -160,4 +162,59 @@ class ZanoWalletProvider extends ChangeNotifier {
   }
 
   Future<void> store() => zanoWallet.store();
+
+  Future getRecentTxsAndInfo() async {
+    try {
+      getRecentTxsAndInfoResult = await zanoWallet.getRecentTxsAndInfo(GetRecentTxsAndInfoParams(offset: 0, count: 30));
+      getRecentTxsAndInfoError = null;
+    } catch (e) {
+      getRecentTxsAndInfoResult = null;
+      getRecentTxsAndInfoError = e.toString();
+    }
+    notifyListeners();
+  }
+
+  Future<void> transfer(
+    String amount,
+    String destinationAddress,
+    String paymentId,
+    String comment,
+    bool pushPayer,
+    bool hideReceiver,
+  ) async {
+    try {
+      txFee = zanoWallet.getCurrentTxFee(priority: 0);
+      transferResult = await zanoWallet.transfer(TransferParams(
+        destinations: [
+          Destination(
+            amount: _mulBy10_12(double.parse(amount)),
+            address: destinationAddress,
+            assetId: assetIds.keys.first,
+          )
+        ],
+        fee: txFee,
+        mixin: mixin,
+        paymentId: paymentId,
+        comment: comment,
+        pushPayer: pushPayer,
+        hideReceiver: hideReceiver,
+      ));
+      transferError = null;
+      // if (result == null) {
+      //   setState(() => _transferResult = 'empty result');
+      // } else {
+      //   setState(() => _transferResult = 'transfer tx hash ${result.txHash} size ${result.txSize} ');
+      // }
+    } catch (e) {
+      transferResult = null;
+      transferError = e.toString();
+    }
+    notifyListeners();
+  }
+
+  String _mulBy10_12(double value) {
+    var str = (value * pow(10, 12)).toString();
+    if (str.contains('.')) str = str.split('.')[0];
+    return str;
+  }
 }
